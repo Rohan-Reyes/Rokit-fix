@@ -3,6 +3,12 @@ CONTEXT FOR AI ASSISTANTS - ZUMI TOOLKIT (Rokitbrick / Snap4Arduino)
 Paste this whole file into a new AI chat before asking it to write or edit a Zumi route.
 
 
+FOLDER PLACEHOLDERS (replace with the real paths on your PC)
+  <PROJECTS_DIR>    folder where your Rokitbrick .xml projects are saved
+  <ROKITBRICK_DIR>  the Rokitbrick install folder (the one containing package.nw), e.g. ...\Rokitbrick_1.2.7
+  <DOCS_DIR>        folder holding this file and Zumi-Toolkit Guide.txt (docs/ in the Rokit-fix repo)
+
+
 0. TL;DR FOR THE AI
 -------------------
 - Target: ROKIT Zumi robot car (Arduino Pro Mini, ATmega328, 16 MHz, 30,720 bytes flash, 2 KB RAM).
@@ -12,16 +18,16 @@ Paste this whole file into a new AI chat before asking it to write or edit a Zum
   "broadcast <move> and wait" blocks plus a few "set <variable>" blocks.
 - To build a new route you normally ONLY edit the route part of the main script.
   Never edit the move scripts unless asked to tune them.
-- Output files go in: C:\Users\User\RootFolder\[02] - RESEARCH AND COMPETITIONS\Rokitbrick_127\projects
+- Output files go in: <PROJECTS_DIR>
 
 
 1. FILES
 --------
-Rokitbrick_127\projects\Zumi-Toolkit.xml        full library: every move script + floating example blocks
-Rokitbrick_127\projects\Trial-5R5R5L5L4.xml     example route; contains ONLY the move scripts its route calls
-Rokitbrick_127\projects\In-OutV4.xml            older plain-block project; source of the line-trace blocks
-Rokitbrick_127\Rokitbrick_1.2.7\package.nw\arduino\libraries\Zumi\Zumi.h    Zumi library (C++)
-GITC\Zumi-Toolkit Guide.txt                     human guide (how to build a route by hand)
+<PROJECTS_DIR>\Zumi-Toolkit.xml                  full library: every move script + floating example blocks
+<PROJECTS_DIR>\Trial-5R5R5L5L4.xml               example route; contains ONLY the move scripts its route calls
+<PROJECTS_DIR>\In-OutV4.xml                      older plain-block project; source of the line-trace blocks
+<ROKITBRICK_DIR>\package.nw\arduino\libraries\Zumi\Zumi.h    Zumi library (C++)
+<DOCS_DIR>\Zumi-Toolkit Guide.txt               human guide (how to build a route by hand)
 
 
 2. HOW A ROUTE LOOKS (the only part you normally write)
@@ -198,7 +204,7 @@ Main tuning values (set blocks at the top of the main script, each has a collaps
    setup header (IRsensorInit, startIRreceiver, setIRChannel(1), MotorInit, motors STOP,
    GyroCalibration), append each receiveMessage script as "void NAME() { ... }", and
    "void loop() {}". Broadcast calls in main become "NAME();".
-2. Compile with Rokitbrick's own builder (run inside ...\Rokitbrick_1.2.7\package.nw\arduino):
+2. Compile with Rokitbrick's own builder (run inside <ROKITBRICK_DIR>\package.nw\arduino):
    arduino-builder.exe -compile -hardware hardware -hardware rokitHardware -tools tools-builder
      -tools hardware/tools/avr -built-in-libraries libraries -libraries RokitLibraries
      -fqbn arduino:avr:pro:cpu=16MHzatmega328 -prefs "runtime.tools.avr-gcc.path=hardware/tools/avr"
