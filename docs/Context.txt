@@ -1,0 +1,206 @@
+CONTEXT FOR AI ASSISTANTS - ZUMI TOOLKIT (Rokitbrick / Snap4Arduino)
+====================================================================
+Paste this whole file into a new AI chat before asking it to write or edit a Zumi route.
+
+
+0. TL;DR FOR THE AI
+-------------------
+- Target: ROKIT Zumi robot car (Arduino Pro Mini, ATmega328, 16 MHz, 30,720 bytes flash, 2 KB RAM).
+- Editor: Rokitbrick 1.2.7 = Snap4Arduino 1.0.6 (block language). Projects are Snap XML files.
+  The app converts ONE script to Arduino C ("codify") and uploads it.
+- The toolkit project is Zumi-Toolkit.xml. A route is written in the MAIN script as a list of
+  "broadcast <move> and wait" blocks plus a few "set <variable>" blocks.
+- To build a new route you normally ONLY edit the route part of the main script.
+  Never edit the move scripts unless asked to tune them.
+- Output files go in: C:\Users\User\RootFolder\[02] - RESEARCH AND COMPETITIONS\Rokitbrick_127\projects
+
+
+1. FILES
+--------
+Rokitbrick_127\projects\Zumi-Toolkit.xml        full library: every move script + floating example blocks
+Rokitbrick_127\projects\Trial-5R5R5L5L4.xml     example route; contains ONLY the move scripts its route calls
+Rokitbrick_127\projects\In-OutV4.xml            older plain-block project; source of the line-trace blocks
+Rokitbrick_127\Rokitbrick_1.2.7\package.nw\arduino\libraries\Zumi\Zumi.h    Zumi library (C++)
+GITC\Zumi-Toolkit Guide.txt                     human guide (how to build a route by hand)
+
+
+2. HOW A ROUTE LOOKS (the only part you normally write)
+--------------------------------------------------------
+In the main script, after the block commented "ROUTE STARTS HERE" and before the final two
+"motor STOP" blocks:
+
+  set nBlocks to 5
+  broadcast acrossR90 and wait
+  broadcast acrossR90 and wait
+  broadcast acrossL90 and wait
+  broadcast acrossL90 and wait
+  set nBlocks to 4
+  set traceCs to 810
+  broadcast acrossTrace and wait
+  [motor M1 STOP] [motor M2 STOP]   <- always keep these last
+
+Variables KEEP their value between moves: only emit a "set" block when the value changes.
+
+
+3. MOVES (broadcast names - exact spelling, case-sensitive)
+------------------------------------------------------------
+  acrossR90    count nBlocks blocks (gyro-straight) -> straight overSpd for overMs -> brake -> pivot right 90
+  acrossL90    same, pivot left 90
+  across       count nBlocks -> straight overSpd for overMs -> brake (no turn)
+  stopR90      count nBlocks -> brake ON the last block -> pivot right 90
+  stopL90      count nBlocks -> brake ON the last block -> pivot left 90
+  acrossStop   count nBlocks -> brake ON the last block (no turn)   [only in Trial / older builds]
+  acrossTrace  count nBlocks -> straight overSpd for preTraceMs (no stop) -> line trace for traceCs -> stop -> snap heading
+  lineTrace    find line (creep, 3 s max) -> line trace for traceCs -> stop -> snap heading to nearest 90 deg of start
+  R90 / L90    pivot right / left 90
+  U180         pivot 180 (turns right)
+  goForward    gyro-straight forward at moveSpd for moveMs, then brake
+  goBackward   gyro-straight backward at moveSpd for moveMs, then brake
+  (pause)      use the normal "wait N secs" block
+
+Map phrase -> blocks:
+  "Across 5, forward, turn right"       set nBlocks 5 ; acrossR90
+  "Across 3, (wait), turn left"         set nBlocks 3 ; stopL90
+  "Across 4, then line tracing"         set nBlocks 4 ; set traceCs 810 ; acrossTrace
+  "Line tracing"                        lineTrace
+  "Forward 1 sec, 50 speed"             set moveSpd 50 ; set moveMs 1000 ; goForward
+  "Backward 1 sec, 50 speed"            set moveSpd 50 ; set moveMs 1000 ; goBackward
+  "Wait 2 seconds"                      wait 2 secs
+  "Turn right 90" / "left 90" / "180"   R90 / L90 / U180
+
+
+4. ROUTE VARIABLES
+------------------
+  nBlocks     blocks to count for across* / stop* moves
+  moveSpd     0-255 speed for goForward / goBackward
+  moveMs      milliseconds for goForward / goBackward (1000 = 1 s)
+  traceCs     line-trace time in 1/100 s (810 = 8.1 s)   <- NOTE: centiseconds, not ms
+  preTraceMs  ms of straight driving between the last block and line tracing in acrossTrace
+
+
+5. EXACT XML FOR ROUTE BLOCKS
+-----------------------------
+The main script is the <script> that starts with <block s="receiveGo"></block> AND contains
+doDeclareVariables (there is a second, tiny receiveGo script = battery display; ignore it).
+Blocks are siblings, in order, inside that <script>. Use exactly these forms:
+
+  set variable:   <block s="doSetVar"><l>nBlocks</l><l>5</l></block>
+  call a move:    <block s="doBroadcastAndWait"><l>acrossR90</l></block>
+  wait:           <block s="doWait"><l>0.5</l></block>
+  comment on a block (optional, put before the block's closing tag):
+                  <comment w="260" collapsed="false">text</comment>
+  final stop (keep last):
+    <block s="zumiDCmotor"><l><option>M1</option></l><l><option>STOP</option></l><l>0</l></block>
+    <block s="zumiDCmotor"><l><option>M2</option></l><l><option>STOP</option></l><l>0</l></block>
+
+Escape & < > in comment text as &amp; &lt; &gt;. The file must stay well-formed XML.
+A move broadcast only works if a script "<block s="receiveMessage"><l>NAME</l></block>"
+with the same NAME exists in the file. If you build a route-only file from the Trial, copy the
+needed move scripts from Zumi-Toolkit.xml (whole <script x=".." y=".."> ... </script> elements).
+
+
+6. HARD RULES (breaking these = upload/compile fails or robot misbehaves)
+-------------------------------------------------------------------------
+1. NO broadcast inside a "when I receive" (move) script. The converter only rewrites calls in the
+   main script; a nested call becomes "!call!..." text and the compile fails. Every move script is
+   therefore fully self-contained (logic is duplicated on purpose).
+2. Never name a move "forward" or "backward": Zumi.h has #define forward/backward -> compile error.
+   (Also avoid other Zumi.h macro names: FORWARD, BACKWARD, LEFT, RIGHT, CW, CCW, STOP, M1, M2 ...)
+3. All variables become global 16-bit int (-32768..32767). No decimals in variables.
+   - Times: use ms or 1/100 s, never seconds with decimals. millis() is always used as
+     (timer / 10) so it doesn't overflow.
+   - Angles are stored x10 (tenths of a degree). Gains are x10 (kpDrive10 = 50 means 5.0).
+   - Multiply by float literals (e.g. * 0.01) inside expressions to avoid int overflow.
+   - A "wait" with a variable: wait (varMs * 0.001)  (not varMs / 1000 -> integer division = 0).
+4. Only these blocks convert to C:
+   receiveGo, receiveMessage, doBroadcastAndWait (main script only), doWait, doUntil, doIf,
+   doIfElse, doRepeat, doForever, reportSum/Difference/Product/Quotient, reportLessThan/
+   GreaterThan/Equals, reportAnd/Or/Not, reportMonadic (ABS), reportRound, doSetVar,
+   doChangeVar, doDeclareVariables, zumiDCmotor, zumiDCMove, zumiAcrossBlock, zumiTurn,
+   zumiMoveForward, zumiMoveBackward, readSensor, eulerAngle, timer, OLEDAnimation, OLEDOutput.
+   No custom blocks, no lists, no strings math.
+5. Flash: the full toolkit is ~29.3 KB of 30.7 KB (95%). The linker drops move scripts the route
+   never calls, so route-only files are smaller (Trial ~23 KB). Adding NEW move scripts costs
+   ~1-3 KB each; adding route blocks costs only a few bytes.
+6. Opening speed: Rokitbrick renders every block; files with 3000+ blocks open slowly. Prefer
+   route-only files that include just the move scripts the route uses.
+
+
+7. HARDWARE / MOTION FACTS
+--------------------------
+- Motors: zumiDCmotor(M1|M2, CW|CCW|STOP, 0-255).
+    forward      = M1 CCW + M2 CW
+    backward     = M1 CW  + M2 CCW
+    pivot right  = M1 CCW + M2 CCW   (yaw error > 0 -> turn right)
+    pivot left   = M1 CW  + M2 CW
+- Gyro: eulerAngle(YAW) in degrees (-180..180), positive = clockwise/right. Calibrated at power-up:
+  the robot must be still for the first 1-2 s.
+- Bottom IR sensors: readSensor(THE_BOTTOM_LEFT / THE_BOTTOM_RIGHT). LOW value = white.
+    Block counting: white < thresh (125), back to black > thresh + hyst (125 + 30).
+    Line tracing (V4 logic): sensor > BL/BR (100) = on the line.
+- Built-in zumiAcrossBlock always ends with a hard stop (library DCMove(stop)); the toolkit's own
+  counter does not, which is why moves can flow into each other without stopping.
+
+
+8. HOW THE MOVE SCRIPTS WORK (only needed when tuning)
+------------------------------------------------------
+- Heading hold (every straight): PID on yaw error in tenths of a degree.
+    corr = err*0.01*kpDrive10 + dErr*0.01*kdDrive10 + iErr*0.001*kiDrive10
+    left = spd + corr, right = spd - corr; if one wheel exceeds driveMaxSpd the excess is taken
+    off the other wheel; then clamp to driveMaxSpd; a wheel below driveMinSpd is set to 0
+    (a stalled motor at low PWM whines/beeps at the PWM pitch, 490/980 Hz - avoid low non-zero speeds).
+    iErr (learned motor mismatch) persists between moves; reset when driving backward.
+- Block counter: per-sensor black->white edge counting with hysteresis; a block it starts on is
+  not counted; finishes when either sensor reaches nBlocks; last block driven at approachSpd.
+  For across/acrossR90/acrossL90/acrossTrace the same gyro loop then continues at overSpd for
+  overMs (or preTraceMs) - no open-loop driving (open-loop made it curve).
+- Pivot: waits turnPauseMs, then targetYaw += turnDeg*10 (+trimR10 / -trimL10), measured from the
+  PREVIOUS TARGET (errors don't accumulate). Speed = P on remaining angle, at turnMinSpd inside
+  slowZone10. Stall kick: every 0.05 s, if absErr shrank < 0.5 deg, boost += boostStep (reset on
+  progress / in tolerance) so the motors never sit stalled. Done only after staying within turnTol10 for holdCs; safety timeout turnTimeoutCs.
+- Snap (after line tracing): targetYaw = start heading + nearest multiple of 90.
+
+Main tuning values (set blocks at the top of the main script, each has a collapsed label):
+  overSpd 160, overMs 600, preTraceMs 500, traceCs 810, thresh 125, hyst 30,
+  driveSpd 220, approachSpd 160, driveMinSpd 40, driveMaxSpd 255,
+  kpDrive10 50, kdDrive10 30, kiDrive10 3, iMax 5000, brakeSpd 120, brakeMs 80,
+  turnTol10 10, holdCs 20, slowZone10 150, turnPauseMs 150, trimR10 0, trimL10 0,
+  kpTurn10 25, turnMinSpd 55, turnMaxSpd 120, boostStep 10, turnTimeoutCs 350,
+  line trace: BL 100, BR 100, spdStraight 170, spdFast 195, spdSlow 125, lostSpd 90 (V4 used 30 there = stall whine).
+
+
+9. USER PREFERENCES
+-------------------
+- Wants minimal blocks per move and files that open fast.
+- Standard after-across structure = "across N -> move forward ~160 for ~0.5-0.6 s -> turn".
+- When writing PLAIN-block (non-toolkit) projects: never use the "Move forward (sec, speed)"
+  block (zumiMoveForward); use "Move [FORWARD] in [speed]" (zumiDCMove) + wait, and
+  "Move [FORWARD] in [0]" to stop.
+- Save new files in the projects folder with a new name; don't overwrite the user's own versions
+  (In-OutV2, V3, V4 ... are the user's edits).
+
+
+10. CHECKLIST BEFORE HANDING A FILE BACK
+----------------------------------------
+[ ] XML is well-formed (parse it).
+[ ] Every broadcast name in the route has a matching receiveMessage script in the file.
+[ ] No broadcast inside a receiveMessage script.
+[ ] Route ends with the two motor STOP blocks.
+[ ] Times use the right units (Ms = ms, Cs = 1/100 s) and no variable holds a decimal.
+[ ] If possible, compile it (see 11) and report flash usage; must be <= 30,720 bytes.
+
+
+11. OPTIONAL: COMPILE CHECK WITHOUT THE APP
+-------------------------------------------
+1. Convert the main script to C the way Rokitbrick does: replace each block with its template from
+   the <code> section at the bottom of the XML (e.g. doSetVar = "  <#1> = <#2>;", doUntil =
+   "while(!<#1>){ Zumi.getGyro(); <#2> }"), declare variables as global ints, add the standard
+   setup header (IRsensorInit, startIRreceiver, setIRChannel(1), MotorInit, motors STOP,
+   GyroCalibration), append each receiveMessage script as "void NAME() { ... }", and
+   "void loop() {}". Broadcast calls in main become "NAME();".
+2. Compile with Rokitbrick's own builder (run inside ...\Rokitbrick_1.2.7\package.nw\arduino):
+   arduino-builder.exe -compile -hardware hardware -hardware rokitHardware -tools tools-builder
+     -tools hardware/tools/avr -built-in-libraries libraries -libraries RokitLibraries
+     -fqbn arduino:avr:pro:cpu=16MHzatmega328 -prefs "runtime.tools.avr-gcc.path=hardware/tools/avr"
+     -build-path <dir> -build-cache <dir> <sketchDir>\genCode.ino
+   The last lines print "Sketch uses N bytes (X%) of program storage space".

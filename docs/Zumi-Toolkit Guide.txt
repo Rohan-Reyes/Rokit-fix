@@ -1,0 +1,140 @@
+ZUMI TOOLKIT - HOW TO BUILD A ROUTE
+===================================
+Project file : Rokitbrick_127\projects\Zumi-Toolkit.xml   (full library, all moves)
+Example file : Rokitbrick_127\projects\Trial-5R5R5L5L4.xml (only the moves its route uses -> opens faster)
+App          : Rokitbrick 1.2.7
+
+
+1. OPEN THE PROJECT
+-------------------
+1. Start Rokitbrick.
+2. File > Import (or drag the .xml onto the window) and pick Zumi-Toolkit.xml.
+3. The canvas has 3 areas, left to right:
+
+   MAIN SCRIPT (far left, under the green flag)
+       settings at the top, then the route.  THIS IS THE ONLY SCRIPT YOU EDIT.
+   FLOATING BLOCKS (middle column)
+       ready-made moves, not connected to anything. Copy them into the route.
+   MOVE SCRIPTS (right side, "when I receive ...")
+       the engine. Don't edit, rename or move blocks into them.
+
+
+2. THE MOVES
+------------
+Every move is a "broadcast [name] and wait" block.
+
+  MOVE          WHAT IT DOES                                          NEEDS
+  acrossR90     across N blocks -> straight 0.6 s -> perfect right 90  nBlocks
+  acrossL90     across N blocks -> straight 0.6 s -> perfect left 90   nBlocks
+  across        across N blocks -> straight 0.6 s -> stop (no turn)    nBlocks
+  stopR90       across N blocks, stop ON the last block -> right 90    nBlocks
+  stopL90       across N blocks, stop ON the last block -> left 90     nBlocks
+  acrossTrace   across N blocks -> straight 0.5 s -> line trace        nBlocks, traceCs
+  lineTrace     find the line -> line trace -> stop                    traceCs
+  R90 / L90     perfect 90 turn on the spot                            -
+  U180          perfect 180 (turns right)                              -
+  goForward     straight forward for a time                            moveSpd, moveMs
+  goBackward    straight backward for a time                           moveSpd, moveMs
+  wait          normal Rokitbrick wait block (pause)                   -
+
+All straights are gyro (Euler angle) locked. All turns are measured from the
+previous target heading, so small errors never add up.
+
+
+3. THE ROUTE VARIABLES
+----------------------
+  nBlocks   how many blocks the next across / stop / acrossTrace counts
+  moveSpd   speed for goForward / goBackward (0-255)
+  moveMs    time for goForward / goBackward in ms (1000 = 1 s)
+  traceCs   line-trace time in 1/100 s (810 = 8.1 s)
+
+A variable KEEPS its value. Only put a "set" block in the route when the
+value changes. Example: three 5-block legs in a row = set nBlocks to 5 once.
+
+
+4. BUILD A ROUTE (step by step)
+-------------------------------
+1. In the main script find the block with the comment "ROUTE STARTS HERE".
+2. Delete the example route blocks after it, but KEEP the last 2 blocks
+   (motor M1 STOP, motor M2 STOP) at the very end.
+3. For each step of your map:
+     a. Right-click the matching FLOATING BLOCK stack > duplicate.
+     b. Drop it into the route, in order.
+     c. Change the number in its "set" block if needed.
+4. Check the route reads top-to-bottom exactly like your map.
+5. Right-click the main script > Arduino export / upload.
+   (Upload the MAIN script, not the small battery script.)
+
+
+5. MAP -> BLOCKS CHEAT SHEET
+----------------------------
+  MAP SAYS                                   BLOCKS
+  Across 5, forward, turn right              set nBlocks 5 . acrossR90
+  Across 5, forward, turn left               set nBlocks 5 . acrossL90
+  Across 3, (wait), turn right               set nBlocks 3 . stopR90
+  Across 5, forward, no turn                 set nBlocks 5 . across
+  Across 4, then line tracing                set nBlocks 4 . set traceCs 810 . acrossTrace
+  Line tracing                               set traceCs 810 . lineTrace
+  Turn right / left 90                       R90 / L90
+  Turn 180                                   U180
+  Forward 1 sec, 50 speed                    set moveSpd 50 . set moveMs 1000 . goForward
+  Backward 1 sec, 50 speed                   set moveSpd 50 . set moveMs 1000 . goBackward
+  Wait 2 seconds                             wait 2
+
+
+6. EXAMPLE - TRIAL ROUTE
+------------------------
+Map: 5 right, 5 right, 5 left, 5 left, 4 then line trace
+
+  set nBlocks to 5
+  broadcast acrossR90 and wait
+  broadcast acrossR90 and wait
+  broadcast acrossL90 and wait
+  broadcast acrossL90 and wait
+  set nBlocks to 4
+  set traceCs to 810
+  broadcast acrossTrace and wait
+  motor M1 STOP
+  motor M2 STOP
+
+
+7. BEFORE EVERY RUN
+-------------------
+- Charge the battery (low battery = weak motors, humming, short turns).
+- Place the Zumi SQUARE to the grid. The start heading is taken at the
+  green flag; every turn is measured from it.
+- Keep it COMPLETELY STILL for the first 1-2 seconds (gyro calibration).
+  Moving it then makes straights drift.
+
+
+8. TUNING (settings at the top of the main script)
+--------------------------------------------------
+Every setting has a collapsed label - click the small comment next to it.
+
+  PROBLEM                                  CHANGE
+  Turns always a bit short / too far       trimR10 / trimL10 (+20 = 2 deg more, -20 = 2 deg less)
+  Beep / whine (stalled motor)             already fixed in code; if left: boostStep up (10 -> 15),
+                                           driveMinSpd up (40 -> 50)
+  Straight still curves                    kiDrive10 up (3 -> 5), or kpDrive10 up (50 -> 60)
+  Straight weaves left-right               kdDrive10 down (30 -> 15)
+  Misses blocks                            thresh up a little, or driveSpd down
+  Counts a block twice                     hyst up (30 -> 40)
+  Turns too early / too late after across  overMs (600 = 0.6 s; longer = turn later)
+  Needs more stop before turning           turnPauseMs (150 = 0.15 s)
+  Line trace ends too early / too late     traceCs (1/100 s: 810 = 8.1 s)
+  Loses the line on curves                 spdStraight down (170 -> 150), then spdSlow down
+  Line trace too slow                      spdStraight / spdFast / spdSlow up
+
+
+9. RULES - DON'T BREAK THESE
+----------------------------
+- Never put a broadcast INSIDE a move script ("when I receive ..."). The Zumi
+  converter can't do calls inside calls -> upload fails.
+- Never name a new move "forward" or "backward" (reserved by the Zumi
+  library). That's why the toolkit uses goForward / goBackward.
+- Times: "Ms" variables are milliseconds (1000 = 1 s), "Cs" variables are
+  1/100 s (100 = 1 s). The Zumi only has whole numbers, so this keeps the
+  numbers small enough.
+- Memory: the full toolkit uses ~95% of the Zumi's program space. Moves the
+  route never calls are left out when it compiles, so a route-only file
+  (like the Trial) is smaller and opens faster.
