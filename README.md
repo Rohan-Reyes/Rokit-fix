@@ -12,6 +12,7 @@ Open any `.xml` with **File > Import** in Rokitbrick, then upload the **main scr
 | `minis/LineTrace-Mini-Vars.xml` | Same line trace, every value a variable with a collapsed note. |
 | `minis/Euler-Mini.xml` | Shortest gyro (Euler angle) turn + straight. Short variable names. |
 | `minis/Euler-MiniV2.xml` | Same as Euler-Mini with long variable names and notes. |
+| `route-builder/Zumi-Route-Builder.html` | Offline page: build a route from shorthand (`5AR650, 4A, LT820`), download the Rokitbrick `.xml` or upload straight to the Zumi over USB. See `route-builder/README.md`. |
 | `docs/Zumi-Toolkit Guide.txt` | How to build a route with the toolkit by hand. |
 | `docs/Context.txt` | Full technical context. Paste it into an AI chat before asking it to edit a route. |
 
